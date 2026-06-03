@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>新莊高中樂樂老師點名系統</title>
+    <style>
+        :root {
+            --primary: #007aff; --danger: #ff3b30; --success: #34c759;
+            --warning: #ffcc00; --dark: #1c1c1e;
+            --accent: #d85a30; --accent-bg: #faece7;
+            --accent-border: #f0997b; --tag-bg: #fff3ef; --tag-text: #993c1d;
+            --border-col: rgba(0,0,0,0.08);
+            --surface: #ffffff; --surface2: #f0eeea;
+            --text1: #1a1a1a; --text2: #666; --text3: #999;
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #f2f2f7; color: var(--dark); }
+        header { background: var(--dark); color: #fff; padding: 20px 15px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 10px rgba(0,0,0,0.1); }
+        #header-title { font-size: 19px; font-weight: 600; }
+        #clock { font-size: 12px; color: #8e8e93; margin-top: 4px; }
+        .container { padding: 12px; max-width: 600px; margin: auto; }
+        .view-section { display: none; } .active { display: block; }
+
+        /* ── 班級選單 ── */
+        .class-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .btn-class { height: 90px; font-size: 26px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 12px; font-weight: bold; }
+
+        /* ── 點名介面 ── */
+        .date-picker-area { background: #fff; padding: 12px; text-align: center; border-bottom: 1px solid #ddd; margin-bottom: 10px; border-radius: 10px; }
+        .mode-selector { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+        .btn-mode { height: 45px; color: white; border-radius: 8px; border: none; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .student-row { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; background: white; }
+        .student-info { flex: 1; }
+        .student-name { font-weight: bold; font-size: 17px; }
+        .badge { font-size: 10px; padding: 2px 5px; border-radius: 5px; margin-right: 4px; font-weight: bold; }
+        .btn-group { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; width: 72%; }
+        .control-btn { padding: 8px 2px; border-radius: 6px; border: 1px solid #ddd; background: #fff; font-size: 13px; font-weight: bold; min-width: 40px; position: relative; cursor: pointer; }
+        .count-now { color: #fff; font-size: 9px; position: absolute; top: -5px; right: -5px; background: #ff4757; border-radius: 50%; width: 17px; height: 17px; line-height: 17px; text-align: center; border: 1px solid white; }
+        .att-active { background: #ffc107 !important; color: #000; border-color: #fab005; }
+        .plus-active { background: #28a745 !important; color: #fff; border-color: #218838; }
+        .minus-active { background: #dc3545 !important; color: #fff; border-color: #c82333; }
+        .btn-sync { width: 100%; height: 60px; background: #212529; color: #fff; font-size: 19px; margin-top: 20px; border-radius: 30px; border: none; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; }
+
+        /* ── 違規統計 ── */
+        .stat-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+        .stat-toggle-btn {
+            flex: 1; padding: 8px; font-size: 13px; font-weight: 500;
+            border: 1px solid var(--border-col); border-radius: 8px;
+            background: var(--surface); color: var(--text2); cursor: pointer; transition: all .2s;
+        }
+        .stat-toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border-col); background: var(--surface); }
+        table { border-collapse: collapse; width: 100%; font-size: 12px; }
+        thead th {
+            background: var(--surface2); padding: 8px 6px;
+            font-weight: 600; font-size: 11px; color: var(--text2);
+            border-bottom: 1px solid var(--border-col); white-space: nowrap;
+        }
+        thead th:first-child { text-align: left; padding-left: 10px; min-width: 64px; }
+        thead th:not(:first-child) { text-align: center; min-width: 32px; }
+        tbody tr { border-bottom: 0.5px solid var(--border-col); cursor: pointer; transition: background .15s; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:active { background: var(--surface2); }
+        tbody td { padding: 7px 6px; text-align: center; }
+        tbody td:first-child { text-align: left; padding-left: 10px; font-weight: 500; font-size: 12px; color: var(--text1); }
+        .cell-0 { color: var(--text3); font-size: 11px; }
+        .cell-1 { color: #ba7517; font-weight: 500; }
+        .cell-2 { color: #d85a30; font-weight: 600; }
+        .cell-3 { color: #a32d2d; font-weight: 700; background: #fcebeb; border-radius: 4px; }
+
+        .student-select-wrap { margin-bottom: 12px; }
+        .student-select-wrap select {
+            width: 100%; padding: 10px 12px; font-size: 15px;
+            border: 1px solid var(--border-col); border-radius: 10px;
+            background: var(--surface); color: var(--text1);
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 12px center;
+        }
+        .student-card { background: var(--surface); border-radius: 12px; border: 1px solid var(--border-col); overflow: hidden; }
+        .card-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border-col); display: flex; align-items: center; justify-content: space-between; }
+        .card-name { font-size: 16px; font-weight: 600; }
+        .card-summary { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+        .summary-tag { font-size: 11px; font-weight: 600; background: var(--tag-bg); color: var(--tag-text); padding: 2px 8px; border-radius: 20px; }
+        .total-badge { font-size: 12px; font-weight: 600; background: var(--accent); color: #fff; padding: 3px 10px; border-radius: 20px; }
+        .timeline { padding: 0 0 4px; }
+        .day-row { display: flex; align-items: flex-start; padding: 10px 16px; border-bottom: 0.5px solid var(--border-col); }
+        .day-row:last-child { border-bottom: none; }
+        .day-date { font-size: 13px; font-weight: 600; color: var(--text2); min-width: 40px; padding-top: 1px; }
+        .day-codes { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+        .code-chip { font-size: 13px; font-weight: 500; background: var(--accent-bg); color: var(--tag-text); border: 1px solid var(--accent-border); padding: 2px 9px; border-radius: 20px; }
+        .empty-state { padding: 32px 16px; text-align: center; color: var(--text3); font-size: 14px; }
+        .stat-hint { margin-top: 10px; font-size: 11px; color: var(--text3); text-align: center; }
+    </style>
+</head>
+<body>
+<header>
+    <div id="header-title">新莊高中樂樂老師點名系統</div>
+    <div id="clock">連線中...</div>
+</header>
+<div class="container">
+    <!-- 班級選單 -->
+    <div id="view-class" class="view-section active">
+        <div class="class-grid" id="class-btns"></div>
+    </div>
+
+    <!-- 點名 + 違規統計 -->
+    <div id="view-manage" class="view-section">
+        <div class="date-picker-area">
+            📅 <strong>日期：</strong><input type="date" id="target-date" style="padding:6px; font-size:16px; border-radius:5px; border:1px solid #ccc;">
+        </div>
+        <button onclick="location.reload()" style="width:100%; margin-bottom:10px; padding:10px; border-radius:8px; border:1px solid #ccc; background:#fff;">← 返回班級選單</button>
+
+        <!-- 四個模式按鈕 -->
+        <div class="mode-selector">
+            <button class="btn-mode" style="background:#6c757d" onclick="setMode('att')">出缺席</button>
+            <button class="btn-mode" style="background:#28a745" onclick="setMode('plus')">加分</button>
+            <button class="btn-mode" style="background:#dc3545" onclick="setMode('minus')">扣分</button>
+            <button class="btn-mode" style="background:#d85a30" onclick="setMode('stat')">違規統計</button>
+        </div>
+
+        <!-- 點名名單 -->
+        <div id="main-list" style="border-radius:10px; overflow:hidden; border:1px solid #ddd;"></div>
+        <button class="btn-sync" id="sync-btn" onclick="doSync()">🚀 確認同步至雲端</button>
+
+        <!-- 違規統計區塊 -->
+        <div id="stat-view" style="display:none;">
+            <div class="stat-toggle">
+                <button class="stat-toggle-btn active" id="btnTable" onclick="setStatView('table')">班級總覽</button>
+                <button class="stat-toggle-btn" id="btnCard" onclick="setStatView('card')">個人明細</button>
+            </div>
+            <div id="stat-content"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbzH9kVEJD2dqOeBDpNqhG7uVSCwxgTV1g1D5SWD3JEbdPhvWYkwlYKnUGO8HODvsIhy/exec";
+    let allData = {}, students = [], curClass = "", curMode = 'att', statView = 'table';
+
+    const CODE_MAP = [['att遲','遲'],['-S','罵'],['-P','機'],['-E','吃'],['-C','衣'],['-K','褲'],['-F','鞋']];
+    const CODE_LABEL = Object.fromEntries(CODE_MAP);
+    const CODE_KEYS = CODE_MAP.map(x => x[0]);
+
+    document.getElementById('target-date').valueAsDate = new Date();
+    setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleString('zh-TW'); }, 1000);
+
+    window.onload = async () => {
+        try {
+            const res = await fetch(GAS_URL + "?t=" + Date.now());
+            allData = await res.json();
+            const grid = document.getElementById('class-btns');
+            Object.keys(allData).sort().forEach(c => {
+                const b = document.createElement('button');
+                b.className = 'btn-class'; b.innerText = c;
+                b.onclick = () => loadClass(c);
+                grid.appendChild(b);
+            });
+        } catch (e) { document.getElementById('header-title').innerText = "❌ 無法讀取資料"; }
+    };
+
+    function loadClass(c) {
+        curClass = c;
+        students = allData[c].names.map((n, i) => ({
+            seat: i+1, name: n, att: 'V', log: [],
+            tP: allData[c].totals[i].plus, tM: allData[c].totals[i].minus
+        }));
+        const saved = localStorage.getItem('TEMP_' + curClass);
+        if (saved && confirm("發現此班級有未同步的暫存紀錄，是否還原？")) { students = JSON.parse(saved); }
+        document.querySelector('.view-section.active').classList.remove('active');
+        document.getElementById('view-manage').classList.add('active');
+        setMode('att');
+    }
+
+    function setMode(m) {
+        curMode = m;
+        const mainList = document.getElementById('main-list');
+        const syncBtn = document.getElementById('sync-btn');
+        const statDiv = document.getElementById('stat-view');
+
+        if (m === 'stat') {
+            mainList.style.display = 'none';
+            syncBtn.style.display = 'none';
+            statDiv.style.display = 'block';
+            renderStat();
+        } else {
+            mainList.style.display = 'block';
+            syncBtn.style.display = 'block';
+            statDiv.style.display = 'none';
+            render();
+        }
+    }
+
+    function render() {
+        if (curClass) localStorage.setItem('TEMP_' + curClass, JSON.stringify(students));
+        const list = document.getElementById('main-list'); list.innerHTML = "";
+        students.forEach((s, i) => {
+            const row = document.createElement('div'); row.className = 'student-row';
+            let ctrls = "";
+            if (curMode === 'att') {
+                ["V", "曠", "病", "事", "遲", "公"].forEach(t => {
+                    ctrls += `<button class="control-btn ${s.att===t?'att-active':''}" onclick="students[${i}].att='${t}';render()">${t}</button>`;
+                });
+                const isOther = !["V", "曠", "病", "事", "遲", "公"].includes(s.att);
+                ctrls += `<button class="control-btn ${isOther?'att-active':''}" onclick="addOtherAtt(${i})">其</button>`;
+            } else if (curMode === 'plus') {
+                [['+W','水'],['+T','毛'],['+WT','雙']].forEach(it => {
+                    const cnt = s.log.filter(c => c === it[0]).length;
+                    ctrls += `<button class="control-btn ${cnt>0?'plus-active':''}" onclick="score(${i},'${it[0]}')">${it[1]}${cnt>0?`<span class="count-now">${cnt}</span>`:''}</button>`;
+                });
+                const hasCusPlus = s.log.some(c => c.startsWith('+') && !['+W','+T','+WT'].includes(c));
+                ctrls += `<button class="control-btn ${hasCusPlus?'plus-active':''}" onclick="addCus(${i},'+')">其+</button>`;
+            } else {
+                CODE_MAP.forEach(it => {
+                    const cnt = s.log.filter(c => c.startsWith(it[0])).length;
+                    ctrls += `<button class="control-btn ${cnt>0?'minus-active':''}" onclick="score(${i},'${it[0]}',true)">${it[1]}${cnt>0?`<span class="count-now">${cnt}</span>`:''}</button>`;
+                });
+                const hasCusMinus = s.log.some(c => c.startsWith('-A'));
+                ctrls += `<button class="control-btn ${hasCusMinus?'minus-active':''}" onclick="addCus(${i},'-')">其</button>`;
+            }
+            const attDisplay = ["V", "曠", "病", "事", "遲", "公"].includes(s.att) ? "" : `<span style="font-size:12px; color:var(--primary);">(${s.att})</span>`;
+            row.innerHTML = `<div class="student-info"><div class="student-name">${s.seat}. ${s.name} ${attDisplay}</div><div><span class="badge" style="background:#eafaf1;color:#2ecc71;">+${s.tP}</span><span class="badge" style="background:#fef1f1;color:#e74c3c;">-${s.tM}</span></div></div><div class="btn-group">${ctrls}</div>`;
+            list.appendChild(row);
+        });
+    }
+
+    function addOtherAtt(idx) {
+        const v = prompt("請輸入自訂出勤狀況（例如：校隊、生理假）：");
+        if (v) { students[idx].att = v; render(); }
+    }
+
+    function score(idx, code, isM) {
+        const s = students[idx];
+        const exist = isM ? s.log.filter(x => x.startsWith(code)).length : s.log.filter(x => x === code).length;
+        if (exist > 0 && confirm("移除最後一筆紀錄？")) {
+            const li = isM ? s.log.findLastIndex(x => x.startsWith(code)) : s.log.lastIndexOf(code);
+            s.log.splice(li, 1);
+        } else {
+            if (isM && code === '-S') s.log.push("-S" + (s.log.filter(x => x.startsWith("-S")).length + 1));
+            else s.log.push(code);
+        }
+        render();
+    }
+
+    function addCus(idx, type) {
+        const v = prompt(type === '+' ? "加幾分？" : "扣幾分？");
+        if (v && !isNaN(v)) { students[idx].log.push((type === '+' ? '+' : '-A') + v); render(); }
+    }
+
+    /* ── 違規統計 ── */
+    function setStatView(v) {
+        statView = v;
+        document.getElementById('btnTable').classList.toggle('active', v === 'table');
+        document.getElementById('btnCard').classList.toggle('active', v === 'card');
+        renderStat();
+    }
+
+    function renderStat() {
+        if (statView === 'table') renderStatTable();
+        else renderStatCards();
+    }
+
+    function renderStatTable() {
+        const cls = allData[curClass];
+        if (!cls) return;
+        const headers = CODE_MAP.map(([code, label]) => `<th title="${code}">${label}</th>`).join('');
+        const rows = cls.names.map((name, i) => {
+            const h = cls.history[i] || {};
+            const cells = CODE_KEYS.map(k => {
+                const n = h[k] || 0;
+                const c2 = n === 0 ? 'cell-0' : n === 1 ? 'cell-1' : n === 2 ? 'cell-2' : 'cell-3';
+                return `<td><span class="${c2}">${n || '·'}</span></td>`;
+            }).join('');
+            return `<tr onclick="goStatCard(${i})"><td>${name}</td>${cells}</tr>`;
+        }).join('');
+        document.getElementById('stat-content').innerHTML = `
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>姓名</th>${headers}</tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div class="stat-hint">點選姓名查看個人明細</div>`;
+    }
+
+    function renderStatCards(targetIdx) {
+        const cls = allData[curClass];
+        if (!cls) return;
+        const idx = (targetIdx !== undefined) ? targetIdx : 0;
+        const options = cls.names.map((n, i) =>
+            `<option value="${i}"${i === idx ? ' selected' : ''}>${n}</option>`
+        ).join('');
+        document.getElementById('stat-content').innerHTML = `
+            <div class="student-select-wrap">
+                <select id="studentSelect" onchange="renderStatCards(parseInt(this.value))">${options}</select>
+            </div>
+            <div id="cardBody"></div>`;
+        renderStatCardBody(idx);
+    }
+
+    function renderStatCardBody(idx) {
+        const cls = allData[curClass];
+        const name = cls.names[idx];
+        const details = (cls.details && cls.details[idx]) || [];
+        const history = cls.history[idx] || {};
+        const total = Object.values(history).reduce((a, b) => a + b, 0);
+        const summaryTags = CODE_MAP
+            .filter(([k]) => history[k])
+            .map(([k, label]) => `<span class="summary-tag">${label} ${history[k]}</span>`)
+            .join('');
+        let timeline = '';
+        if (details.length === 0) {
+            timeline = '<div class="empty-state">無扣分紀錄</div>';
+        } else {
+            timeline = details.map(({ date, codes }) => {
+                const chips = codes.filter(c => CODE_LABEL[c])
+                    .map(c => `<span class="code-chip">${CODE_LABEL[c]}</span>`).join('');
+                if (!chips) return '';
+                return `<div class="day-row"><div class="day-date">${date}</div><div class="day-codes">${chips}</div></div>`;
+            }).filter(Boolean).join('');
+        }
+        document.getElementById('cardBody').innerHTML = `
+            <div class="student-card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-name">${name}</div>
+                        <div class="card-summary">${summaryTags || '<span style="font-size:12px;color:var(--text3)">無違規紀錄</span>'}</div>
+                    </div>
+                    ${total > 0 ? `<div class="total-badge">共 ${total} 次</div>` : ''}
+                </div>
+                <div class="timeline">${timeline}</div>
+            </div>`;
+    }
+
+    function goStatCard(idx) {
+        statView = 'card';
+        document.getElementById('btnTable').classList.remove('active');
+        document.getElementById('btnCard').classList.add('active');
+        renderStatCards(idx);
+    }
+
+    /* ── 同步 ── */
+    async function doSync() {
+        const btn = document.getElementById('sync-btn'); btn.disabled = true; btn.innerText = "同步中...";
+        const quotes = [
+            "哼，才不是特別幫你同步的呢，只是剛好網路順而已！樂樂老師快去喝水啦！", "拿去啦，資料都幫你傳好了，不要以為這樣我就會誇獎你喔！", "同步好了...話說，你今天是不是又變帥了？嘖，我才沒看你呢！", "這種小事我自己來就好，樂樂老師你只要乖乖待著就行了！", "幫你同步完啦！不要一直盯著螢幕看，笨蛋！", "成功啦！小小的點名也是大大的成就，老師，你真的很了不起！", "老師辛苦了！看到你這麼認真，我也覺得好幸福喔～", "同步成功！老師你是全校最棒的老師，沒有之一！", "在這美好的時刻，資料已如輕煙般飄往雲端，樂樂老師辛苦了～"
+        ];
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        try {
+            const res = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({
+                    className: curClass,
+                    records: students,
+                    selectedDate: document.getElementById('target-date').value
+                })
+            });
+            if (await res.text() === "Success") {
+                localStorage.removeItem('TEMP_' + curClass);
+                alert(randomQuote);
+                location.reload();
+            } else { throw new Error(); }
+        } catch(e) {
+            alert("❌ 同步失敗...老師，我不是故意的，再試一次好不好？加油！");
+            btn.disabled = false; btn.innerText = "🚀 重新同步";
+        }
+    }
+</script>
+</body>
+</html>
